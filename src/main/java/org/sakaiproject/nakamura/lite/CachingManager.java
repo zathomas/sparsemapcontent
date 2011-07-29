@@ -17,13 +17,17 @@
  */
 package org.sakaiproject.nakamura.lite;
 
+import com.google.common.collect.ImmutableMap;
 import org.sakaiproject.nakamura.api.lite.CacheHolder;
 import org.sakaiproject.nakamura.api.lite.StorageClientException;
 import org.sakaiproject.nakamura.lite.storage.StorageClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Extend this class to add caching to a Manager class.
@@ -36,8 +40,9 @@ public abstract class CachingManager {
     private int hit;
     private int miss;
     private long calls;
+    private static final String META_PREFIX = "meta-";
 
-    /**
+  /**
      * Create a new {@link CachingManager}
      * @param client a client to the underlying storage engine
      * @param sharedCache the cache where the objects will be stored
@@ -64,10 +69,16 @@ public abstract class CachingManager {
 
         if (sharedCache != null && sharedCache.containsKey(cacheKey)) {
             CacheHolder cacheHolder = sharedCache.get(cacheKey);
-            if (cacheHolder != null) {
+          Map<String, Object> objectMetaData = client.get(keySpace, columnFamily, META_PREFIX + key);
+          boolean wasDeleted = (objectMetaData != null
+            && objectMetaData.get("deleted") != null
+            && (Boolean)objectMetaData.get("deleted"));
+          if (cacheHolder != null && !wasDeleted) {
                 m = cacheHolder.get();
                 LOGGER.debug("Cache Hit {} {} {} ",new Object[]{cacheKey, cacheHolder, m});
                 hit++;
+            } else if (cacheHolder != null && wasDeleted) {
+              LOGGER.warn("Object remains in the cache even though we deleted it. Returning null.");
             }
         }
         if (m == null) {
@@ -86,6 +97,16 @@ public abstract class CachingManager {
                     ((100 * hit) / (hit + miss)) });
         }
         return m;
+    }
+
+    protected void markDeleted(String keySpace, String columnFamily, String key) {
+      String deletedKey = getCacheKey(keySpace, columnFamily, key);
+      try {
+        client.insert(keySpace, columnFamily, META_PREFIX + key, ImmutableMap.of("deleted", (Object) Boolean.TRUE), true);
+      } catch (StorageClientException e) {
+        LOGGER.error(e.getMessage());
+      }
+      LOGGER.debug("Marked object as deleted in the cache: {}", deletedKey);
     }
 
     protected abstract Logger getLogger();
@@ -112,7 +133,7 @@ public abstract class CachingManager {
             sharedCache.remove(getCacheKey(keySpace, columnFamily, key));
         }
     }
-    
+
 
     /**
      * Put an object in the cache

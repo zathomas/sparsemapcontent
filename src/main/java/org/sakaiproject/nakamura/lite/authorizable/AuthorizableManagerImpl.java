@@ -65,7 +65,7 @@ public class AuthorizableManagerImpl extends CachingManager implements Authoriza
     private static final Set<String> FILTER_ON_CREATE = ImmutableSet.of(Authorizable.ID_FIELD,
             Authorizable.PASSWORD_FIELD);
     private static final Logger LOGGER = LoggerFactory.getLogger(AuthorizableManagerImpl.class);
-    private String currentUserId;
+  private String currentUserId;
     private StorageClient client;
     private AccessControlManager accessControlManager;
     private String keySpace;
@@ -357,6 +357,7 @@ public class AuthorizableManagerImpl extends CachingManager implements Authoriza
         if (authorizable != null){
             removeFromCache(keySpace, authorizableColumnFamily, authorizableId);
             client.remove(keySpace, authorizableColumnFamily, authorizableId);
+            markDeleted(keySpace, authorizableColumnFamily, authorizableId);
             storeListener.onDelete(Security.ZONE_AUTHORIZABLES, authorizableId, accessControlManager.getCurrentUserId(), authorizable.getOriginalProperties());
         }
     }
