@@ -25,6 +25,7 @@ import com.google.common.collect.Sets;
 import org.apache.commons.codec.binary.Base64;
 import org.sakaiproject.nakamura.api.lite.CacheHolder;
 import org.sakaiproject.nakamura.api.lite.Configuration;
+import org.sakaiproject.nakamura.api.lite.Repository;
 import org.sakaiproject.nakamura.api.lite.StorageClientException;
 import org.sakaiproject.nakamura.api.lite.StorageClientUtils;
 import org.sakaiproject.nakamura.api.lite.StoreListener;
@@ -71,6 +72,7 @@ public class AccessControlManagerImpl extends CachingManager implements AccessCo
     private Map<String, int[]> cache = new ConcurrentHashMap<String, int[]>();
     private boolean closed;
     private StoreListener storeListener;
+    private Repository repository;
     private PrincipalTokenValidator principalTokenValidator;
     private PrincipalTokenResolver principalTokenResolver;
     private SecureRandom secureRandom;
@@ -78,16 +80,22 @@ public class AccessControlManagerImpl extends CachingManager implements AccessCo
     private Map<String, String[]> principalCache = new ConcurrentHashMap<String, String[]>();
     private ThreadLocal<String> principalRecursionLock = new ThreadLocal<String>();
 
-    public AccessControlManagerImpl(StorageClient client, User currentUser, Configuration config,
+    public AccessControlManagerImpl(Repository repository, StorageClient client, User currentUser, Configuration config,
             Map<String, CacheHolder> sharedCache, StoreListener storeListener, PrincipalValidatorResolver principalValidatorResolver) throws StorageClientException {
         super(client, sharedCache);
         this.user = currentUser;
         this.aclColumnFamily = config.getAclColumnFamily();
         this.keySpace = config.getKeySpace();
+        this.repository = repository;
         closed = false;
         this.storeListener = storeListener;
         principalTokenValidator = new PrincipalTokenValidator(principalValidatorResolver);
         secureRandom = new SecureRandom();
+    }
+
+    public AccessControlManagerImpl(StorageClient client, User currentUser, Configuration config,
+            Map<String, CacheHolder> sharedCache, StoreListener storeListener, PrincipalValidatorResolver principalValidatorResolver) throws StorageClientException {
+        this(null, client, currentUser, config, sharedCache, storeListener, principalValidatorResolver);
     }
 
     public Map<String, Object> getAcl(String objectType, String objectPath)
@@ -412,16 +420,35 @@ public class AccessControlManagerImpl extends CachingManager implements AccessCo
             return principalCache.get(k);
         }
         Set<String> memberOfSet = Sets.newHashSet(authorizable.getPrincipals());
-        if ( authorizableManager != null ) {
+        if ( authorizableManager != null || repository != null ) {
             // membership resolution is possible, but we had better turn off recursion
             if ( principalRecursionLock.get() == null ) {
                 principalRecursionLock.set("l");
+              Session adminSession = null;
                 try {
-                    for ( Iterator<Group> gi = authorizable.memberOf(authorizableManager); gi.hasNext(); ) {
+                    AuthorizableManager memberCheckAuthManager = authorizableManager;
+                    if ( repository != null ) {
+                      adminSession = repository.loginAdministrative(this.user.getId());
+                      memberCheckAuthManager = adminSession.getAuthorizableManager();
+                    }
+                    for ( Iterator<Group> gi = authorizable.memberOf(memberCheckAuthManager); gi.hasNext(); ) {
                         memberOfSet.add(gi.next().getId());
                     }
+                } catch (AccessDeniedException e) {
+                  LOGGER.error(e.getLocalizedMessage());
+                } catch (ClientPoolException e) {
+                  LOGGER.error(e.getLocalizedMessage());
+                } catch (StorageClientException e) {
+                  LOGGER.error(e.getLocalizedMessage());
                 } finally {
                     principalRecursionLock.set(null);
+                    if (adminSession != null) {
+                      try {
+                        adminSession.logout();
+                      } catch (ClientPoolException e) {
+                        LOGGER.error(e.getLocalizedMessage());
+                      }
+                    }
                 }
             }
         }
