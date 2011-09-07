@@ -89,9 +89,7 @@ public class WideColumnIndexer extends AbstractIndexer {
                         if (o instanceof RemoveProperty || o == null || valueMembers.length == 0) {
                             removeColumns.add(k);
                         } else {
-                            if (valueMembers.length > 0) {
-                                updateColumns.put(k, valueMembers[0]);
-                            }
+                            updateColumns.put(k, valueMembers[0]);
                         }
 
                     }
