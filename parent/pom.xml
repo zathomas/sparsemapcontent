@@ -116,6 +116,19 @@
        </plugins>
       </build>
     </profile>
+    <profile>
+      <id>release</id>
+      <modules>
+        <module>../</module>
+        <module>../drivers/cassandra</module>
+        <module>../drivers/postgres</module>
+        <module>../extensions/app</module>
+        <module>../extensions/jetty</module>
+        <module>../extensions/memory</module>
+        <module>../extensions/milton</module>
+        <module>../extensions/webdav</module>
+      </modules>
+    </profile>
   </profiles>
   <reporting>
     <plugins>
