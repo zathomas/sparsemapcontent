@@ -68,6 +68,7 @@ import org.sakaiproject.nakamura.api.lite.accesscontrol.Security;
 import org.sakaiproject.nakamura.api.lite.authorizable.User;
 import org.sakaiproject.nakamura.api.lite.content.ActionRecord;
 import org.sakaiproject.nakamura.api.lite.content.Content;
+import org.sakaiproject.nakamura.api.lite.content.ContentAction;
 import org.sakaiproject.nakamura.api.lite.content.ContentManager;
 import org.sakaiproject.nakamura.api.lite.util.PreemptiveIterator;
 import org.sakaiproject.nakamura.lite.CachingManager;
@@ -366,7 +367,23 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
         }
     }
 
-    public void update(Content excontent) throws AccessDeniedException, StorageClientException {
+  public void invokeWithEveryContent(ContentAction contentAction) throws StorageClientException, AccessDeniedException {
+    if (User.ADMIN_USER.equals(accessControlManager.getCurrentUserId()) ) {
+      DisposableIterator<SparseRow> all = client.listAll(keySpace, contentColumnFamily);
+      try {
+        while(all.hasNext()) {
+          Map<String, Object> c = all.next().getProperties();
+          if ( c.containsKey(PATH_FIELD) && !c.containsKey(STRUCTURE_UUID_FIELD)) {
+            contentAction.doIt(get((String) c.get(PATH_FIELD)));
+          }
+        }
+      } finally {
+        all.close();
+      }
+    }
+  }
+
+  public void update(Content excontent) throws AccessDeniedException, StorageClientException {
         checkOpen();
         InternalContent content = (InternalContent) excontent;
         String path = content.getPath();

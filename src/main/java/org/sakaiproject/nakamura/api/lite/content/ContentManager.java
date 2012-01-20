@@ -382,6 +382,8 @@ public interface ContentManager {
      */
     void triggerRefreshAll() throws StorageClientException;
 
+    void invokeWithEveryContent(ContentAction contentAction) throws StorageClientException, AccessDeniedException;
+
 
 
 }

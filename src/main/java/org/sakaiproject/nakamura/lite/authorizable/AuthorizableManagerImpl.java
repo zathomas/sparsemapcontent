@@ -34,6 +34,7 @@ import org.sakaiproject.nakamura.api.lite.accesscontrol.Authenticator;
 import org.sakaiproject.nakamura.api.lite.accesscontrol.Permissions;
 import org.sakaiproject.nakamura.api.lite.accesscontrol.Security;
 import org.sakaiproject.nakamura.api.lite.authorizable.Authorizable;
+import org.sakaiproject.nakamura.api.lite.authorizable.AuthorizableAction;
 import org.sakaiproject.nakamura.api.lite.authorizable.AuthorizableManager;
 import org.sakaiproject.nakamura.api.lite.authorizable.Group;
 import org.sakaiproject.nakamura.api.lite.authorizable.User;
@@ -615,5 +616,21 @@ public class AuthorizableManagerImpl extends CachingManager implements Authoriza
             }
         }
     }
+
+  public void invokeWithEveryAuthorizable(AuthorizableAction authorizableAction) throws StorageClientException, AccessDeniedException {
+    if (User.ADMIN_USER.equals(accessControlManager.getCurrentUserId()) ) {
+      DisposableIterator<SparseRow> all = client.listAll(keySpace, authorizableColumnFamily);
+      try {
+        while(all.hasNext()) {
+          Map<String, Object> c = all.next().getProperties();
+          if ( c.containsKey(Authorizable.ID_FIELD) ) {
+            authorizableAction.doIt(findAuthorizable((String) c.get(Authorizable.ID_FIELD)));
+          }
+        }
+      } finally {
+        all.close(); // not necessary if the wile completes, but if there is an error it might be.
+      }
+    }
+  }
 
 }

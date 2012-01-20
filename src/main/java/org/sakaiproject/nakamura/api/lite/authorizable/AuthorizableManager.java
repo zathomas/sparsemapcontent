@@ -145,5 +145,7 @@ public interface AuthorizableManager {
      */
     void triggerRefreshAll() throws StorageClientException;
 
+    void invokeWithEveryAuthorizable(AuthorizableAction authorizableAction) throws StorageClientException, AccessDeniedException;
+
 
 }
