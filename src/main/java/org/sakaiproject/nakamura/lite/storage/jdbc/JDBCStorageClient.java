@@ -127,7 +127,7 @@ public class JDBCStorageClient implements StorageClient, RowHasher, Disposer {
     private boolean active;
     private StreamedContentHelper streamedContentHelper;
     private List<Disposable> toDispose = Lists.newArrayList();
-    private Exception closed;
+    private Exception invalidated;
     private Exception passivate;
     private String rowidHash;
     private Map<String, AtomicInteger> counters = Maps.newConcurrentMap();
@@ -224,8 +224,8 @@ public class JDBCStorageClient implements StorageClient, RowHasher, Disposer {
             if (passivate != null) {
                 LOGGER.warn("Was Pasivated ", passivate);
             }
-            if (closed != null) {
-                LOGGER.warn("Was Closed ", closed);
+            if (invalidated != null) {
+                LOGGER.warn("Was Closed ", invalidated);
             }
             throw new StorageClientException(e.getMessage(), e);
         } catch (IOException e) {
@@ -234,8 +234,8 @@ public class JDBCStorageClient implements StorageClient, RowHasher, Disposer {
             if (passivate != null) {
                 LOGGER.warn("Was Pasivated ", passivate);
             }
-            if (closed != null) {
-                LOGGER.warn("Was Closed ", closed);
+            if (invalidated != null) {
+                LOGGER.warn("Was Closed ", invalidated);
             }
             throw new StorageClientException(e.getMessage(), e);
         } finally {
@@ -516,22 +516,28 @@ public class JDBCStorageClient implements StorageClient, RowHasher, Disposer {
         }
     }
 
+    public void invalidate() {
+        if (invalidated == null) {
+            shutdownConnection();
+            invalidated = new Exception("Connection Closed Traceback");
+        }
+    }
+
     public void close() {
-        if (closed == null) {
+        if (invalidated == null) {
             try {
-                closed = new Exception("Connection Closed Traceback");
                 shutdownConnection();
                 jcbcStorageClientConnection.releaseClient(this);
             } catch (Throwable t) {
-                LOGGER.error("Failed to close connection ", t);
+                LOGGER.error("Failed to release connection ", t);
             }
         }
     }
 
     private void checkClosed() throws StorageClientException {
-        if (closed != null) {
+        if (invalidated != null) {
             throw new StorageClientException(
-                    "Connection Has Been closed, traceback of close location follows ", closed);
+                    "Connection Has Been closed, traceback of close location follows ", invalidated);
         }
     }
 
