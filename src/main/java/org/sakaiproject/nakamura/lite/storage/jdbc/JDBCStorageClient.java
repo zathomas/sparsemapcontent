@@ -906,6 +906,9 @@ public class JDBCStorageClient implements StorageClient, RowHasher, Disposer {
             final ResultSet rs = trs;
             tpst = null;
             trs = null;
+
+            final JDBCStorageClientPool storageClientPool = jdbcStorageClientConnection;
+
             return registerDisposable(new PreemptiveIterator<SparseRow>() {
 
                 private SparseRow nextValue = null;
@@ -919,6 +922,10 @@ public class JDBCStorageClient implements StorageClient, RowHasher, Disposer {
                 @Override
                 protected boolean internalHasNext() {
                     try {
+                        // Signal that we're still using our connection so the
+                        // ConnectionManager doesn't close it behind our back.
+                        storageClientPool.ping();
+
                         while (open && rs.next()) {
                             try {
                                 Map<String, Object> values = Maps.newHashMap();
