@@ -64,8 +64,12 @@ public abstract class AbstractClientConnectionPool implements StorageClientPool 
     @Property(value = "grow")
     private static final String WHEN_EHAUSTED = "when-exhausted-action";
 
+    private static final int MAXIMUM_LONG_STRING_SIZE = 64*1024;
     private static final int DEFAULT_LONG_STRING_SIZE = 16*1024;
-    @Property(intValue = DEFAULT_LONG_STRING_SIZE)
+    
+    @Property(label="Long String Size", description="The maximum length a string may be before it is stored externally from the database. " +
+    		"0 means unlimited, however strings larger than 64K will result in an error if trying to store in the database. It is recommended " +
+    		"to keep this value between "+DEFAULT_LONG_STRING_SIZE+" and "+MAXIMUM_LONG_STRING_SIZE+".", intValue = DEFAULT_LONG_STRING_SIZE)
     private static final String LONG_STRING_SIZE = "long-string-size";
 
     public  static final String DEFAULT_FILE_STORE = "store";
