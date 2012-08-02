@@ -22,14 +22,10 @@ import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.text.MessageFormat;
-import java.util.Map;
-import java.util.Set;
-
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
+
 import junit.framework.Assert;
 
 import org.apache.commons.lang.StringUtils;
@@ -39,12 +35,20 @@ import org.junit.runner.RunWith;
 import org.mockito.Answers;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.runners.MockitoJUnitRunner;
+import org.sakaiproject.nakamura.api.lite.StorageClientException;
+import org.sakaiproject.nakamura.lite.storage.StorageClientListener;
 import org.sakaiproject.nakamura.lite.storage.jdbc.JDBCStorageClient;
 import org.sakaiproject.nakamura.lite.storage.jdbc.JDBCStorageClientPool;
 
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.text.MessageFormat;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
 
 /**
  *
@@ -77,6 +81,7 @@ public class JDBCStorageClientTest {
 
     // funnel in data when the indexed columns are looked up
     when(conn.prepareStatement(anyString())).thenReturn(ps2);
+    when(conn.getAutoCommit()).thenReturn(true);
     when(ps2.executeQuery()).thenReturn(rs2);
 
     // give back some bogus db vendor data
@@ -382,4 +387,34 @@ public class JDBCStorageClientTest {
     String sql = sqlCaptor.getValue();
     Assert.assertEquals(expectedSql, sql);
   }
+  
+  @Test
+  public void testDataFormatExceptionRollback() throws Exception {
+    String keyspace = "cn";
+    String columnFamily = "tdfer";
+    Map<String, Object> content = new HashMap<String, Object>();
+    content.put("theprop", generateStringLargerThan("long string. ", 70000));
+    
+    StorageClientListener listener = Mockito.mock(StorageClientListener.class);
+    client.setStorageClientListener(listener);
+    
+    StorageClientException sce = null;
+    try {
+      client.insert(keyspace, columnFamily, "key", content, true);
+    } catch (StorageClientException e) {
+      sce = e;
+    }
+    
+    Assert.assertNotNull("Expected a DataFormatException to be thrown.", sce);
+    Mockito.verify(listener).rollback();
+  }
+  
+  private String generateStringLargerThan(String seed, int length) {
+    StringBuilder sb = new StringBuilder();
+    while (sb.length() <=length) {
+      sb.append(seed);
+    }
+    return sb.toString();
+  }
+  
 }
