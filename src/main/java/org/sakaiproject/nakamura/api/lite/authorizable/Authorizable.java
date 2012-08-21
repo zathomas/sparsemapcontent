@@ -202,7 +202,7 @@ public class Authorizable {
             this.principals = Sets.newLinkedHashSet();
         } else {
             this.principals = Sets.newLinkedHashSet(Iterables.of(StringUtils.split(
-                    (String) principalsB, ';')));
+                    String.valueOf(principalsB), ';')));
         }
         if (!User.ANON_USER.equals(this.id)) {
             this.principals.add(Group.EVERYONE);
