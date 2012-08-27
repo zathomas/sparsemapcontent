@@ -157,9 +157,10 @@
     </dependency>
 
     <dependency>
-       <groupId>com.googlecode.guava-osgi</groupId>
-       <artifactId>guava-osgi</artifactId>
-       <version>9.0.0</version>
+       <groupId>com.google.guava</groupId>
+       <artifactId>guava</artifactId>
+       <version>13.0</version>
+       <scope>provided</scope>
     </dependency>
     
     <!-- osgi for events -->
